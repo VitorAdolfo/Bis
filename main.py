@@ -13,6 +13,7 @@ if not os.path.exists(python_venv):
     except subprocess.CalledProcessError:
         print("[ERRO] Não foi possível criar o ambiente virtual python venv")
         print("[MOTIVO] A instalação do pacote venv está incompleta")
+        sys.exit(1)
 
 #Atualiza o ambiente virtual
 subprocess.check_call([python_venv,"-m","pip","install","--upgrade","pip"])
@@ -20,6 +21,6 @@ subprocess.check_call([python_venv,"-m","pip","install","-r","requirements.txt",
 
 #Iniciando o Bot
 try:
-    subprocess.check_call([python_venv,"bis_bot.py"])
+    subprocess.check_call([python_venv,"bot.py"])
 except:
     print("processo encerrado")
