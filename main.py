@@ -8,7 +8,11 @@ python_venv = os.path.join("venv","Scripts","python.exe") if os.name == "nt" els
 
 #Garante um ambiente virtual
 if not os.path.exists(python_venv):
-    subprocess.check_call([sys.executable,"-m","venv","venv"])
+    try:
+        subprocess.check_call([sys.executable, "-m", "venv", "venv"])
+    except subprocess.CalledProcessError:
+        print("[ERRO] Não foi possível criar o ambiente virtual python venv")
+        print("[MOTIVO] A instalação do pacote venv está incompleta")
 
 #Atualiza o ambiente virtual
 subprocess.check_call([python_venv,"-m","pip","install","--upgrade","pip"])
