@@ -80,9 +80,12 @@ async def on_voice_state_update(member:discord.Member,before:discord.VoiceState,
 #Comandos do bot
 @bot.tree.command(name="play",description="Toca um áudio ai")
 async def play(interaction:discord.Interaction, user_search:str):
+    #Resposta imediata para API
+    await interaction.response.send_message("Preparando batidão", ephemeral=True)
+
     #Verificando se ele esta em um canal de voz
     if not interaction.user.voice:
-        await interaction.response.send_message("Entre primeiro em um canal rapaz!")
+        await interaction.edit_original_response(content="Entre primeiro em um canal rapaz!")
         return
     
     #Obtendo canal de voz onde o usuário esta
@@ -93,18 +96,18 @@ async def play(interaction:discord.Interaction, user_search:str):
 
     #Verificando e respondendo permissões
     if not bot_permissions.view_channel:
-        await interaction.response.send_message("Onde se encontra não posso nem ver!")
+        await interaction.edit_original_response(content="Onde se encontra não posso nem ver!")
         return
     if not bot_permissions.connect:
-        await interaction.response.send_message("Não fui permitido neste canal ai rapaz.")
+        await interaction.edit_original_response(content="Não fui permitido neste canal ai rapaz.")
         return
     if not bot_permissions.speak:
-        await interaction.response.send_message("Fui probido de expressar minha linda voz!")
+        await interaction.edit_original_response(content="Fui probido de expressar minha linda voz!")
         return
 
     #Procurando vídeo/áudio
     try:
-        audio_info = ytdlp.extract_info(user_search,download=False)
+        audio_info = ytdlp.extract_info(user_search, download=False)
         if "entries" in audio_info:
             audio_data = audio_info["entries"][0]
         else:
@@ -114,13 +117,13 @@ async def play(interaction:discord.Interaction, user_search:str):
         streaming_url = audio_data["url"]
     
     except Exception as error:
-        await interaction.followup.send("Não pude encontrar isso meu filho, perdão...")
+        await interaction.edit_original_response(content="Não pude encontrar isso meu filho, perdão...")
         print("[ERRO] Não foi possível encontrar o áudio")
         print(f"[MOTIVO] {error}")
         return
 
     #Respondendo usuário
-    await interaction.response.send_message(f"Preparando batidão: {streaming_name}")
+    await interaction.followup.send(f"Preparando para tocar a pedrada: {streaming_name}", silent=True)
 
     #Procurando conexões de áudio naquele servidor
     voice_connection = discord.utils.get(bot.voice_clients, guild=interaction.guild)
@@ -134,7 +137,7 @@ async def play(interaction:discord.Interaction, user_search:str):
     #Encontrando ffmpeg instalado
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
-        await interaction.followup.send("Estou com alguns problemas tecnicos aqui...")
+        await interaction.edit_original_response(content="Estou com alguns problemas tecnicos aqui...")
         print("[ERRO] Caminho para o ffmpeg não foi encontrado")
         return
 
