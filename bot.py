@@ -17,6 +17,7 @@ import asyncio
 #Biblioteca para captura de audio
 import yt_dlp
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Configurando parâmetros para busca
 YTDLP_CONFIG = {
@@ -34,6 +35,7 @@ FFMPEG_CONFIG = {
     "options": "-vn"
 }
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Carregando informações
 dotenv.load_dotenv()
@@ -46,28 +48,42 @@ bot_intents.message_content = True
 #Criando Bot
 bot = commands.Bot("/",intents=bot_intents)
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-#Funções auxiliares
+#Verificação pós áudio
 def after_play_audio(error:discord.ClientException, bot_object:commands.Bot, server:discord.Guild):
     if error:
         print("[ERROR] Não foi possível iniciar o player")
         print(f"[MOTIVO] {error}")
     asyncio.run_coroutine_threadsafe(check_inactivity(bot_object, server),bot_object.loop)
 
+#Verificando inatividade
 async def check_inactivity(bot_object, server):
     await asyncio.sleep(30)
     voice_connection = discord.utils.get(bot_object.voice_clients,guild=server)
     if voice_connection and not voice_connection.is_playing():
         await voice_connection.disconnect()
 
+#Validando conexão do usuário no canal de vóz
+async def user_in_channel(interaction:discord.Interaction, voice_connection:discord.VoiceClient):
+    if not interaction.user.voice:
+        return False
+    
+    if voice_connection.channel != interaction.user.voice.channel:
+        return False
+    
+    return True
 
-#Eventos
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#Evento de iniciar o bot
 @bot.event
 async def on_ready():
     await bot.tree.sync()
 
+#Evento ao mudar o estatus da vóz
 @bot.event
-async def on_voice_state_update(member:discord.Member,before:discord.VoiceState,after:discord.VoiceState):
+async def on_voice_state_update(member:discord.Member, before:discord.VoiceState, after:discord.VoiceState):
     voice = discord.utils.get(bot.voice_clients,guild=member.guild)
     if not voice:
         return
@@ -76,10 +92,11 @@ async def on_voice_state_update(member:discord.Member,before:discord.VoiceState,
         if len([actual_member for actual_member in voice.channel.members if not actual_member.bot]) == 0:
             await voice.disconnect()
 
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-#Comandos do bot
-@bot.tree.command(name="play",description="Toca um áudio ai")
-async def play(interaction:discord.Interaction, user_search:str):
+#Comando para tocar uma música
+@bot.tree.command(name="play",description="Selecione uma delicia para reproduzir...")
+async def play(interaction:discord.Interaction, search:str):
     #Resposta imediata para API
     await interaction.response.send_message("Preparando batidão", ephemeral=True)
 
@@ -107,26 +124,38 @@ async def play(interaction:discord.Interaction, user_search:str):
 
     #Procurando vídeo/áudio
     try:
-        audio_info = ytdlp.extract_info(user_search, download=False)
+        #Extraindo informações do vídeo
+        audio_info = ytdlp.extract_info(search, download=False)
         if "entries" in audio_info:
             audio_data = audio_info["entries"][0]
         else:
             audio_data = audio_info
         
-        streaming_name = audio_data["title"]
         streaming_url = audio_data["url"]
-    
+        streaming_name = audio_data["title"]
+        streaming_thumbnail = audio_data.get("thumbnail")
+
+        #Escrevendo mensagem
+        audio_message = discord.Embed()
+        audio_message.title = streaming_name
+        audio_message.color = discord.Colour.blue()
+        audio_message.description = "Preparando para tocar o batidão selecionado por nosso companheiro"
+        audio_message.add_field(name="O cara que tocou a pedrada:", value=interaction.user.global_name)
+        audio_message.add_field(name="Canal selecionado:",value=interaction.user.voice.channel.name)
+
+        if streaming_thumbnail:
+            audio_message.set_thumbnail(url=streaming_thumbnail)
+
+        await interaction.followup.send(embed=audio_message)
+
     except Exception as error:
         await interaction.edit_original_response(content="Não pude encontrar isso meu filho, perdão...")
         print("[ERRO] Não foi possível encontrar o áudio")
         print(f"[MOTIVO] {error}")
         return
 
-    #Respondendo usuário
-    await interaction.followup.send(f"Preparando para tocar a pedrada: {streaming_name}", silent=True)
-
     #Procurando conexões de áudio naquele servidor
-    voice_connection = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    voice_connection = interaction.guild.voice_client
 
     #Entrando no canal de voz
     if voice_connection and voice_connection.channel != actual_channel:
@@ -149,6 +178,63 @@ async def play(interaction:discord.Interaction, user_search:str):
     audio_sorce = discord.FFmpegPCMAudio(executable=ffmpeg_path, source=streaming_url, **FFMPEG_CONFIG)
     voice_connection.play(audio_sorce, after=lambda error:after_play_audio(error,bot,interaction.guild))
 
+
+#Comando de pausar música
+@bot.tree.command(name="pause", description="Pare e volte a reproduzir um áudio")
+async def pause(interaction:discord.Interaction):
+    #Encontrando conexão com servidor
+    voice_connection = interaction.guild.voice_client
+    
+    #Verificando conexão
+    if not voice_connection:
+        await interaction.response.send_message(content="Eu não estou conectado paisão", ephemeral=True)
+        return
+    
+    #Validando usuário
+    if not await user_in_channel(interaction, voice_connection):
+        await interaction.response.send_message(content="Rapaz deixa os cara se divertir!", ephemeral=True)
+        return
+
+    #Pausando áudio
+    if voice_connection.is_paused():
+        await interaction.response.send_message(content="Continuando música/áudio", ephemeral=True)
+        voice_connection.resume()
+        return
+    
+    #Despausando áudio
+    if voice_connection.is_playing():
+        await interaction.response.send_message(content="Pausando música/áudio", ephemeral=True)
+        voice_connection.pause()
+        return
+
+#Interrompendo a música
+@bot.tree.command(name="stop", description="Acabou a farra rapaziada!")
+async def stop(interaction:discord.Interaction):
+    #Encontrar a conexão com servidor
+    voice_connection = interaction.guild.voice_client
+
+    #Verificando conexão
+    if not voice_connection:
+        await interaction.response.send_message(content="Eu não estou nem no canal menino",ephemeral=True)
+        return
+    
+    #Validando usuário
+    if not await user_in_channel(interaction, voice_connection):
+        await interaction.response.send_message(content="Ei seu danado... você nem esta no canal de vóz",ephemeral=True)
+        return
+
+    #Verificando áudio
+    if not (voice_connection.is_playing() or voice_connection.is_paused()):
+        await interaction.response.send_message(content="Estou caladinho aqui", ephemeral=True)
+        return
+
+    #Encerrando áudio
+    if voice_connection.is_playing():
+        await interaction.response.send_message("Parando aqui chefe...", ephemeral=True)
+        voice_connection.stop()
+        return
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Iniciando Bot
 bot.run(bot_token)
