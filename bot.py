@@ -229,7 +229,7 @@ async def stop(interaction:discord.Interaction):
         return
 
     #Encerrando áudio
-    if voice_connection.is_playing():
+    if voice_connection.is_playing() or voice_connection.is_paused():
         await interaction.response.send_message("Parando aqui chefe...", ephemeral=True)
         voice_connection.stop()
         return
