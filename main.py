@@ -1,15 +1,17 @@
 #Importando bibliotecas
 import os
 import sys
-import json
 import time
 import subprocess
-from datetime import datetime
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Caminhos do Projeto
 project_path = os.path.dirname(__file__)
 requirements_path = os.path.join(project_path, "requirements.txt")
-project_metadata_path = os.path.join(project_path, "project_metadata.json")
+project_metadata_path = os.path.join(project_path, "venv", ".last_update")
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Interpretador python do Venv
 python_venv = os.path.join(project_path, "venv","Scripts","python.exe") if os.name == "nt" else os.path.join(project_path, "venv","bin","python")
@@ -23,16 +25,18 @@ if not os.path.exists(python_venv):
         print("[MOTIVO] A instalação do pacote venv está incompleta")
         sys.exit(1)
 
-#Verifica os metadados do projeto
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#Verifica condições para update
 def need_update() -> bool:
     if not os.path.exists(project_metadata_path):
         return True
 
     with open(project_metadata_path,"r",encoding="utf-8") as file:
-        data = json.load(file)
-        if not data.get("timestamp"):
+        data = file.read()
+        if not data:
             return True
-        if (time.time() - data["timestamp"]) > 86400:
+        if (time.time() - float(data)) > 86400:
             return True
 
 #Atualiza o ambiente virtual
@@ -41,14 +45,13 @@ if os.path.exists(requirements_path) and need_update():
         subprocess.check_call([python_venv,"-m","pip","install","--upgrade","pip"])
         subprocess.check_call([python_venv,"-m","pip","install","-r","requirements.txt","--upgrade"])
         with open(project_metadata_path,"w",encoding="utf-8") as file:
-            json.dump({
-                "last_update":datetime.now().isoformat(timespec="seconds"),
-                "timestamp":time.time()
-            }, file)
+            file.write(str(time.time()))
     
     except Exception as error:
         print("[ERRO] Não foi possível atualizar o ambiente virtual")
         print(f"[MOTIVO] {error}")
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #Iniciando o Bot
 try:
